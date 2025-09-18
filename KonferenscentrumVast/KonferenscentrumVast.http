@@ -1,0 +1,7 @@
+﻿@KonferenscentrumVast_HostAddress = http://localhost:5227
+
+GET {{KonferenscentrumVast_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
