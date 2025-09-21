@@ -409,6 +409,7 @@ ASALocalRun/
 # -------------------------
 
 # Ignore all appsettings variants (contains secrets like connection strings)
+appsettings.json
 appsettings.*.json
 
 # -------------------------
