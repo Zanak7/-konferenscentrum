@@ -146,6 +146,20 @@ namespace KonferenscentrumVast.Controllers
         }
 
         /// <summary>
+        /// Uploads a contract file and associates it with a contract
+        /// </summary>
+        /// <param name="file">The contract file (PDF and DOCX)</param>
+        /// <param name="contractId">ID of the contract this file belongs to</param>
+        /// <returns>Information about the uploaded file</returns>
+        [HttpPost("{contractId:int}/uploadcontract")]
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult<FileUploadResultDto>> UploadContract(IFormFile file, int contractId)
+        {
+            var result = await _service.UploadContractAsync(file, contractId);
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Converts domain model to response DTO with flattened data for API consumers
         /// </summary>
         private static BookingContractResponseDto ToDto(BookingContract c)

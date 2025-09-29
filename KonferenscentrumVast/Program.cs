@@ -6,6 +6,8 @@ using KonferenscentrumVast.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +45,11 @@ builder.Services.AddScoped<CustomerService>();
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Azure Blob Storage
+builder.Services.AddSingleton(new BlobServiceClient(
+    builder.Configuration["Blob_ConnectionString"]
+    ?? builder.Configuration["AzureStorage:ConnectionString"]));
 
 builder.Services.AddCors(opt =>
 {
