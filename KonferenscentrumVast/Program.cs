@@ -8,6 +8,7 @@ using Microsoft.OpenApi.Models;
 using System.Reflection;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using KonferenscentrumVast;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,7 +79,7 @@ app.UseExceptionMapping();    // our custom exception -> HTTP mapping
 app.UseHttpsRedirection();
 app.UseCors("dev");           // remove or change if not needed
 app.UseAuthorization();
-
+app.UseMiddleware<AuditMiddleware>(); // audit logging
 app.MapControllers();
 
 app.Run();
