@@ -173,9 +173,9 @@ namespace KonferenscentrumVast.Services
 
             if (!okImage) throw new ValidationException("Only JPG or PNG is allowed.");
 
-            //Gets only the filename and creates a unique blob name under this id
+            //Gets only the filename and creates a unique blob name with the correct extension (such as .png)
             var safeName = Path.GetFileName(file.FileName);
-            var blobName = $"{facilityId}/{Guid.NewGuid()}_{safeName}";
+            var blobName = $"{facilityId}/{Guid.NewGuid()}_{ext}";
 
             //Gets the container and blob with the connection string
             var container = _blob.GetBlobContainerClient(_imagesContainer);
@@ -196,8 +196,8 @@ namespace KonferenscentrumVast.Services
             );
 
             _logger.LogInformation(
-                "Uploaded image file {FileName} for facility id {FacilityId} to container {Container} as {BlobName} ({SizedBytes} bytes).",
-                safeName, facilityId, _imagesContainer, blobName, file.Length);
+                "Uploaded image file for facility id {FacilityId} to container {Container} as {BlobName} ({SizedBytes} bytes).",
+                 facilityId, _imagesContainer, blobName, file.Length);
 
             //Returns information about the uploaded file, including its path, name and size.
             return new FileUploadResultDto

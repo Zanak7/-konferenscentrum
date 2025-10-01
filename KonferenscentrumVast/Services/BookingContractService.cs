@@ -242,9 +242,9 @@ namespace KonferenscentrumVast.Services
 
             if (!okContract) throw new ValidationException("Only PDF or DOCX is allowed.");
 
-            //Gets only the filename and creates a unique blob name under this id
+            //Gets only the filename and creates a unique blob name with the correct extension (such as .pdf)
             var safeName = Path.GetFileName(file.FileName);
-            var blobName = $"{contractId}/{Guid.NewGuid()}_{safeName}";
+            var blobName = $"{contractId}/{Guid.NewGuid()}_{ext}";
 
             //Gets the container and blob with the connection string
             var container = _blob.GetBlobContainerClient(_contractsContainer);
@@ -265,8 +265,8 @@ namespace KonferenscentrumVast.Services
             );
 
             _logger.LogInformation(
-                "Uploaded contract file {FileName} for contract id {ContractId} to container {Container} as {BlobName} ({SizedBytes} bytes).",
-                safeName, contractId, _contractsContainer, blobName, file.Length);
+                "Uploaded contract file for contract id {ContractId} to container {Container} as {BlobName} ({SizedBytes} bytes).",
+                 contractId, _contractsContainer, blobName, file.Length);
 
             //Returns information about the uploaded file, including its path, name and size.
             return new FileUploadResultDto

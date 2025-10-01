@@ -134,13 +134,13 @@ namespace KonferenscentrumVast.Controllers
         /// Uploads an image file and associates it with a facility
         /// </summary>
         /// <param name="file">The image file (JPG and PNG)</param>
-        /// <param name="facilityId">ID of the facility this file belongs to</param>
+        /// <param name="id">ID of the facility this file belongs to</param>
         /// <returns>Information about the uploaded file</returns>
-        [HttpPost("{facilityId:int}/uploadimage")]
+        [HttpPost("{id:int}/uploadimage")]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<FileUploadResultDto>> UploadImage(IFormFile file, int facilityId)
+        public async Task<ActionResult<FileUploadResultDto>> UploadImage(IFormFile file, int id)
         {
-            var result = await _service.UploadImageAsync(file, facilityId);
+            var result = await _service.UploadImageAsync(file, id);
             return Ok(result);
         }
 
