@@ -52,7 +52,7 @@ namespace KonferenscentrumVast.Services
             var normalizedEmail = NormalizeEmail(email);
             var duplicate = await _customers.GetByEmailAsync(normalizedEmail);
             if (duplicate != null)
-                throw new ConflictException($"A customer with email '{normalizedEmail}' already exists (id={duplicate.Id}).");
+                throw new ConflictException($"A customer with the same email already exists (id={duplicate.Id}).");
 
             var customer = new Customer
             {
@@ -68,7 +68,7 @@ namespace KonferenscentrumVast.Services
             };
 
             customer = await _customers.CreateAsync(customer);
-            _logger.LogInformation("Created customer {CustomerId} ({Email}).", customer.Id, customer.Email);
+            _logger.LogInformation("Created customer {CustomerId}.", customer.Id);
             return customer;
         }
 
@@ -94,7 +94,7 @@ namespace KonferenscentrumVast.Services
             {
                 var duplicate = await _customers.GetByEmailAsync(normalizedEmail);
                 if (duplicate != null && duplicate.Id != id)
-                    throw new ConflictException($"A customer with email '{normalizedEmail}' already exists (id={duplicate.Id}).");
+                    throw new ConflictException($"A customer with the same email already exists (id={duplicate.Id}).");
             }
 
             existing.FirstName = firstName.Trim();
@@ -109,7 +109,7 @@ namespace KonferenscentrumVast.Services
             var updated = await _customers.UpdateAsync(existing.Id, existing)
                 ?? throw new NotFoundException($"Customer with id={id} was not found during update.");
 
-            _logger.LogInformation("Updated customer {CustomerId} ({Email}).", updated.Id, updated.Email);
+            _logger.LogInformation("Updated customer {CustomerId}.", updated.Id);
             return updated;
         }
 
