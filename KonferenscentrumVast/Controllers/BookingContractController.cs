@@ -1,11 +1,8 @@
-﻿using System;
-using System.Diagnostics.Contracts;
-using KonferenscentrumVast.DTO;
+﻿using KonferenscentrumVast.DTO;
 using KonferenscentrumVast.Models;
 using KonferenscentrumVast.Repository.Interfaces;
 using KonferenscentrumVast.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 
 
@@ -62,14 +59,14 @@ namespace KonferenscentrumVast.Controllers
         /// <summary>
         /// Retrieves the contract associated with a specific booking
         /// </summary>
-        /// <param name="bookingId">Booking ID</param>
+        /// <param name="id">Booking ID</param>
         /// <returns>Contract for the booking</returns>
         /// <response code="200">Returns the contract</response>
         /// <response code="404">Contract not found for booking</response>
-        [HttpGet("booking/{bookingId:int}")]
-        public async Task<ActionResult<BookingContractResponseDto>> GetByBookingId(int bookingId)
+        [HttpGet("booking/{id:int}")]
+        public async Task<ActionResult<BookingContractResponseDto>> GetByBookingId(int id)
         {
-            var entity = await _service.GetByBookingIdAsync(bookingId);
+            var entity = await _service.GetByBookingIdAsync(id);
             return Ok(ToDto(entity));
         }
 
@@ -150,6 +147,20 @@ namespace KonferenscentrumVast.Controllers
         {
             var entity = await _service.CancelAsync(id, reason);
             return Ok(ToDto(entity));
+        }
+
+        /// <summary>
+        /// Uploads a contract file and associates it with a contract
+        /// </summary>
+        /// <param name="file">The contract file (PDF and DOCX)</param>
+        /// <param name="id">ID of the contract this file belongs to</param>
+        /// <returns>Information about the uploaded file</returns>
+        [HttpPost("{id:int}/uploadcontract")]
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult<FileUploadResultDto>> UploadContract(IFormFile file, int id)
+        {
+            var result = await _service.UploadContractAsync(file, id);
+            return Ok(result);
         }
 
         /// <summary>

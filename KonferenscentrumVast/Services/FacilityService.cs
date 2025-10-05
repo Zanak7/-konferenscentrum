@@ -1,7 +1,10 @@
 ﻿using System;
+using KonferenscentrumVast.DTO;
 using KonferenscentrumVast.Exceptions;
 using KonferenscentrumVast.Models;
 using KonferenscentrumVast.Repository.Interfaces;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 namespace KonferenscentrumVast.Services
 {
@@ -13,13 +16,20 @@ namespace KonferenscentrumVast.Services
     {
         private readonly IFacilityRepository _facilities;
         private readonly ILogger<FacilityService> _logger;
+        private readonly BlobServiceClient _blob;
+        private readonly string _imagesContainer;
 
         public FacilityService(
             IFacilityRepository facilities,
-            ILogger<FacilityService> logger)
+            ILogger<FacilityService> logger,
+            BlobServiceClient blob,
+            IConfiguration cfg)
         {
             _facilities = facilities;
             _logger = logger;
+            _blob = blob;
+            _imagesContainer = cfg["AzureStorage:ImagesContainer"]
+                ?? throw new InvalidOperationException("Missing AzureStorage:ImagesContainer");
         }
 
         public Task<IEnumerable<Facility>> GetAllAsync() => _facilities.GetAllAsync();
@@ -125,6 +135,77 @@ namespace KonferenscentrumVast.Services
 
             _logger.LogInformation("Set facility {FacilityId} active={Active}.", facility.Id, isActive);
             return updated;
+        }
+
+         /// <summary>
+        /// Handles image file uploads by validating input, checking file type and size,
+        /// ensuring the facility exists, and then uploading the file to Azure Blob Storage.
+        /// Returns information about the uploaded file, including its path, name, and size.
+        /// </summary>
+
+        public async Task<FileUploadResultDto> UploadImageAsync(IFormFile file, int facilityId)
+        {
+            //Validations for the id and the files
+            if (facilityId <= 0)
+                throw new ValidationException("Invalid id.");
+
+            if (file == null || file.Length == 0)
+                throw new ValidationException("File is missing or empty.");
+
+            const long MaxBytes = 10 * 1024 * 1024; // 10 MB
+            if (file.Length > MaxBytes)
+                throw new ValidationException("File is too large.");
+
+            //Gets the facility with the id and checks if it exists
+            var facility = await _facilities.GetByIdAsync(facilityId);
+
+            if (facility is null) throw new NotFoundException("Facility not found");
+
+            //If the ContentType/extension is null, use an empty string to prevent the app from crashing
+            // Convert them to small letters
+            var ct = (file.ContentType ?? "").ToLowerInvariant();
+            var ext = (Path.GetExtension(file.FileName) ?? "").ToLowerInvariant();
+
+            //Check if the file is JPG or PNG
+            var okImage =
+                (ct == "image/jpeg" && (ext == ".jpg" || ext == ".jpeg")) ||
+                (ct == "image/png" && ext == ".png");
+
+            if (!okImage) throw new ValidationException("Only JPG or PNG is allowed.");
+
+            //Gets only the filename and creates a unique blob name with the correct extension (such as .png)
+            var safeName = Path.GetFileName(file.FileName);
+            var blobName = $"{facilityId}/{Guid.NewGuid()}_{ext}";
+
+            //Gets the container and blob with the connection string
+            var container = _blob.GetBlobContainerClient(_imagesContainer);
+            var blob = container.GetBlobClient(blobName);
+
+            //Open the read stream and upload the blob
+            using var s = file.OpenReadStream();
+
+            await blob.UploadAsync(
+                s,
+                new BlobUploadOptions
+                {
+                    HttpHeaders = new BlobHttpHeaders
+                    {
+                        ContentType = file.ContentType ?? "application/octet-stream",
+                    },
+                }
+            );
+
+            _logger.LogInformation(
+                "Uploaded image file for facility id {FacilityId} to container {Container} as {BlobName} ({SizedBytes} bytes).",
+                 facilityId, _imagesContainer, blobName, file.Length);
+
+            //Returns information about the uploaded file, including its path, name and size.
+            return new FileUploadResultDto
+            {
+                BlobPath = blobName,
+                FileName = safeName,
+                Size = file.Length,
+            };
         }
 
         /// <summary>

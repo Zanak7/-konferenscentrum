@@ -6,9 +6,9 @@ using KonferenscentrumVast.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using Azure.Storage.Blobs;
+using KonferenscentrumVast;
 using Azure.Identity;
-using Azure.Security.KeyVault.Secrets;
-using Azure.Extensions.AspNetCore.Configuration.Secrets;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -53,6 +53,11 @@ builder.Services.AddScoped<CustomerService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Azure Blob Storage
+builder.Services.AddSingleton(new BlobServiceClient(
+    builder.Configuration["Blob_ConnectionString"]
+    ?? builder.Configuration["AzureStorage:ConnectionString"]));
+
 builder.Services.AddCors(opt =>
 {
     opt.AddPolicy("dev", policy =>
@@ -80,7 +85,7 @@ app.UseExceptionMapping();    // our custom exception -> HTTP mapping
 app.UseHttpsRedirection();
 app.UseCors("dev");           // remove or change if not needed
 app.UseAuthorization();
-
+app.UseMiddleware<AuditMiddleware>(); // audit logging
 app.MapControllers();
 
 app.Run();

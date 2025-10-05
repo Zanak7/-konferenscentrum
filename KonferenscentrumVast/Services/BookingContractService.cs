@@ -3,6 +3,8 @@ using KonferenscentrumVast.DTO;
 using KonferenscentrumVast.Exceptions;
 using KonferenscentrumVast.Models;
 using KonferenscentrumVast.Repository.Interfaces;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 namespace KonferenscentrumVast.Services
 {
@@ -17,19 +19,26 @@ namespace KonferenscentrumVast.Services
         private readonly IFacilityRepository _facilities;
         private readonly ICustomerRepository _customers;
         private readonly ILogger<BookingContractService> _logger;
+        private readonly BlobServiceClient _blob;
+        private readonly string _contractsContainer;
 
         public BookingContractService(
             IBookingRepository bookings,
             IBookingContractRepository contracts,
             IFacilityRepository facilities,
             ICustomerRepository customers,
-            ILogger<BookingContractService> logger)
+            ILogger<BookingContractService> logger,
+            BlobServiceClient blob,
+            IConfiguration cfg)
         {
             _bookings = bookings;
             _contracts = contracts;
             _facilities = facilities;
             _customers = customers;
             _logger = logger;
+            _blob = blob;
+            _contractsContainer = cfg["AzureStorage:ContractsContainer"] 
+                ?? throw new InvalidOperationException("Missing AzureStorage:ContractsContainer");
         }
 
         /// <summary>
@@ -195,6 +204,77 @@ namespace KonferenscentrumVast.Services
 
             _logger.LogInformation("Cancelled contract {ContractId}.", updated.Id);
             return updated;
+        }
+
+        /// <summary>
+        /// Handles contract file uploads by validating input, checking file type and size,
+        /// ensuring the contract exists, and then uploading the file to Azure Blob Storage.
+        /// Returns information about the uploaded file, including its path, name, and size.
+        /// </summary>
+
+        public async Task<FileUploadResultDto> UploadContractAsync(IFormFile file, int contractId)
+        {
+            //Validations for the id and the files
+            if (contractId <= 0)
+                throw new ValidationException("Invalid id.");
+
+            if (file == null || file.Length == 0)
+                throw new ValidationException("File is missing or empty.");
+
+            const long MaxBytes = 10 * 1024 * 1024; // 10 MB
+            if (file.Length > MaxBytes)
+                throw new ValidationException("File is too large.");
+
+            //Gets the contract with the contractId and checks if it exists
+            var contract = await _contracts.GetByIdAsync(contractId);
+
+            if (contract is null) throw new NotFoundException("Contract not found");
+
+            //If the ContentType/extension is null, use an empty string to prevent the app from crashing
+            // Convert them to small letters
+            var ct = (file.ContentType ?? "").ToLowerInvariant();
+            var ext = (Path.GetExtension(file.FileName) ?? "").ToLowerInvariant();
+
+            //Check if the file is PDF or DOCX
+            var okContract =
+                (ct == "application/pdf" && ext == ".pdf") ||
+                (ct == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && ext == ".docx");
+
+            if (!okContract) throw new ValidationException("Only PDF or DOCX is allowed.");
+
+            //Gets only the filename and creates a unique blob name with the correct extension (such as .pdf)
+            var safeName = Path.GetFileName(file.FileName);
+            var blobName = $"{contractId}/{Guid.NewGuid()}_{ext}";
+
+            //Gets the container and blob with the connection string
+            var container = _blob.GetBlobContainerClient(_contractsContainer);
+            var blob = container.GetBlobClient(blobName);
+
+            //Open the read stream and upload the blob
+            using var s = file.OpenReadStream();
+
+            await blob.UploadAsync(
+                s,
+                new BlobUploadOptions
+                {
+                    HttpHeaders = new BlobHttpHeaders
+                    {
+                        ContentType = file.ContentType ?? "application/octet-stream",
+                    },
+                }
+            );
+
+            _logger.LogInformation(
+                "Uploaded contract file for contract id {ContractId} to container {Container} as {BlobName} ({SizedBytes} bytes).",
+                 contractId, _contractsContainer, blobName, file.Length);
+
+            //Returns information about the uploaded file, including its path, name and size.
+            return new FileUploadResultDto
+            {
+                BlobPath = blobName,
+                FileName = safeName,
+                Size = file.Length,
+            };
         }
 
         /// <summary>
