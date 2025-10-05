@@ -6,12 +6,21 @@ using KonferenscentrumVast.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
+
 
 var builder = WebApplication.CreateBuilder(args);
+Console.WriteLine($"ENV: {builder.Environment.EnvironmentName}");
+builder.Services.AddApplicationInsightsTelemetry();
+builder.Configuration.AddAzureKeyVault(new Uri("https://kv-konferenscentrum.vault.azure.net/"), new DefaultAzureCredential());
 
 
 // Controllers + JSON (optional: guard against reference loops if any entity slips through)
 builder.Services.AddControllers();
+builder.Services.AddSingleton<BookingEmailQueueService>();
+
 
 // Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

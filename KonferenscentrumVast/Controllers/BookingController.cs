@@ -1,11 +1,12 @@
-﻿using System;
-using KonferenscentrumVast.DTO;
+﻿using KonferenscentrumVast.DTO;
 using KonferenscentrumVast.Models;
 using KonferenscentrumVast.Repository.Interfaces;
 using KonferenscentrumVast.Services;
 using Microsoft.AspNetCore.Mvc;
+using KonferenscentrumVast.Exceptions;
 
 namespace KonferenscentrumVast.Controllers
+
 {
     /// <summary>
     /// API controller for managing facility bookings.
@@ -13,22 +14,12 @@ namespace KonferenscentrumVast.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    public class BookingController : ControllerBase
+    public class BookingController(
+        BookingService bookingService,
+        IBookingRepository bookings,
+        ILogger<BookingController> logger,
+        BookingEmailQueueService queueService) : ControllerBase
     {
-        private readonly BookingService _bookingService;
-        private readonly IBookingRepository _bookings;
-        private readonly ILogger<BookingController> _logger;
-
-        public BookingController(
-            BookingService bookingService,
-            IBookingRepository bookings,
-            ILogger<BookingController> logger)
-        {
-            _bookingService = bookingService;
-            _bookings = bookings;
-            _logger = logger;
-        }
-
         /// <summary>
         /// Retrieves a specific booking by ID
         /// </summary>
@@ -39,7 +30,7 @@ namespace KonferenscentrumVast.Controllers
         [HttpGet("{id:int}")]
         public async Task<ActionResult<BookingResponseDto>> GetById(int id)
         {
-            var booking = await _bookings.GetByIdAsync(id);
+            var booking = await bookings.GetByIdAsync(id);
             if (booking == null) return NotFound();
             return Ok(ToDto(booking));
         }
@@ -51,7 +42,7 @@ namespace KonferenscentrumVast.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BookingResponseDto>>> GetAll()
         {
-            var data = await _bookings.GetAllAsync();
+            var data = await bookings.GetAllAsync();
             return Ok(data.Select(ToDto));
         }
 
@@ -74,13 +65,13 @@ namespace KonferenscentrumVast.Controllers
             IEnumerable<Booking> data;
 
             if (customerId.HasValue)
-                data = await _bookings.GetByCustomerIdAsync(customerId.Value);
+                data = await bookings.GetByCustomerIdAsync(customerId.Value);
             else if (facilityId.HasValue)
-                data = await _bookings.GetByFacilityIdAsync(facilityId.Value);
+                data = await bookings.GetByFacilityIdAsync(facilityId.Value);
             else if (from.HasValue && to.HasValue)
-                data = await _bookings.GetByDateRangeAsync(from.Value, to.Value);
+                data = await bookings.GetByDateRangeAsync(from.Value, to.Value);
             else
-                data = await _bookings.GetAllAsync();
+                data = await bookings.GetAllAsync();
 
             return Ok(data.Select(ToDto));
         }
@@ -97,7 +88,7 @@ namespace KonferenscentrumVast.Controllers
         [HttpPost]
         public async Task<ActionResult<BookingResponseDto>> Create([FromBody] BookingCreateDto request)
         {
-            var booking = await _bookingService.CreateBookingAsync(
+            var booking = await bookingService.CreateBookingAsync(
                 request.CustomerId,
                 request.FacilityId,
                 request.StartDate,
@@ -105,60 +96,136 @@ namespace KonferenscentrumVast.Controllers
                 request.NumberOfParticipants,
                 request.Notes);
 
+            logger.LogInformation("Booking.Create received for Facility {FacilityId}", request.FacilityId);
+
+            await queueService.EnqueueAsync(new
+            {
+                BookingId = booking.Id,
+                Action = "Created",
+                Reason = request.Notes,
+                CustomerEmail = booking.Customer.Email,
+                CustomerName = booking.Customer.GetFullName(),
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                At = DateTime.UtcNow
+            });
+
+            logger.LogInformation("Queue message enqueued for BookingId {BookingId}", booking.Id);
+
             return CreatedAtAction(nameof(GetById), new { id = booking.Id }, ToDto(booking));
         }
+            /// <summary>
+            /// Confirms a pending booking
+            /// </summary>
+            /// <param name="id">Booking ID</param>
+            /// <returns>Confirmed booking</returns>
+            /// <response code="200">Booking confirmed</response>
+            /// <response code="400">Cannot confirm cancelled or past booking</response>
+            /// <response code="404">Booking not found</response>
+            [HttpPost("{id}/confirm")]
+            public async Task<IActionResult> Confirm(int id)
+            {
+                var (ok, booking) = await bookingService.ConfirmAsync(id);
+                if (!ok) return NotFound();
+                
+                logger.LogInformation("Booking.Confirm called for BookingId {BookingId}", id);
+                
+                await queueService.EnqueueAsync(new
+                {
+                    BookingId = id,
+                    Action = "Confirmed",
+                    At = DateTime.UtcNow,
+                    CustomerEmail = booking.Customer.Email,
+                    CustomerName = booking.Customer.GetFullName()
+                });
 
-        /// <summary>
-        /// Confirms a pending booking
-        /// </summary>
-        /// <param name="id">Booking ID</param>
-        /// <returns>Confirmed booking</returns>
-        /// <response code="200">Booking confirmed</response>
-        /// <response code="400">Cannot confirm cancelled or past booking</response>
-        /// <response code="404">Booking not found</response>
-        [HttpPost("{id:int}/confirm")]
-        public async Task<ActionResult<BookingResponseDto>> Confirm(int id)
-        {
-            var updated = await _bookingService.ConfirmBookingAsync(id);
-            return Ok(ToDto(updated));
-        }
+                logger.LogInformation("Queue message enqueued for BookingId {BookingId}", id);
 
-        /// <summary>
-        /// Changes booking dates with availability checking
-        /// </summary>
-        /// <param name="id">Booking ID</param>
-        /// <param name="request">New start and end dates</param>
-        /// <returns>Rescheduled booking with updated pricing</returns>
-        /// <response code="200">Booking rescheduled</response>
-        /// <response code="400">Invalid dates or cancelled booking</response>
-        /// <response code="404">Booking not found</response>
-        /// <response code="409">New dates conflict with existing bookings</response>
-        [HttpPost("{id:int}/reschedule")]
-        public async Task<ActionResult<BookingResponseDto>> Reschedule(int id, [FromBody] BookingRescheduleDto request)
-        {
-            var updated = await _bookingService.RescheduleBookingAsync(id, request.StartDate, request.EndDate);
-            return Ok(ToDto(updated));
-        }
+                return Ok();
+            }
 
-        /// <summary>
-        /// Cancels a booking with optional reason (idempotent operation)
-        /// </summary>
-        /// <param name="id">Booking ID</param>
-        /// <param name="request">Optional cancellation details</param>
-        /// <returns>No content</returns>
-        /// <response code="204">Booking cancelled successfully</response>
-        /// <response code="404">Booking not found</response>
-        [HttpDelete("{id:int}")]
-        public async Task<IActionResult> Cancel(int id, [FromBody] BookingCancelDto? request)
-        {
-            await _bookingService.CancelBookingAsync(id, request?.Reason);
-            return NoContent();
-        }
 
-        // ------- mapping helpers-------
-        /// <summary>
-        /// Converts domain model to response DTO, flattening related entity data for easier consumption
-        /// </summary>
+            /// <summary>
+            /// Changes booking dates with availability checking
+            /// </summary>
+            /// <param name="id">Booking ID</param>
+            /// <param name="request">New start and end dates</param>
+            /// <returns>Rescheduled booking with updated pricing</returns>
+            /// <response code="200">Booking rescheduled</response>
+            /// <response code="400">Invalid dates or cancelled booking</response>
+            /// <response code="404">Booking not found</response>
+            /// <response code="409">New dates conflict with existing bookings</response>
+            [HttpPost("{id:int}/reschedule")]
+            public async Task<ActionResult<BookingResponseDto>> Reschedule(
+                    int id, [FromBody] BookingRescheduleDto request)
+            {
+                var updatedBooking = await bookingService.RescheduleBookingAsync(id, request.StartDate, request.EndDate);
+                
+                logger.LogInformation("Booking.Reschedule called for BookingId {BookingId}", id);
+
+                await queueService.EnqueueAsync(new
+                {
+                    BookingId = id,
+                    Action = "Rescheduled",
+                    Reason = (string?)null,
+                    StartDate = request.StartDate,
+                    EndDate = request.EndDate,
+                    At = DateTime.UtcNow,
+                    CustomerEmail = updatedBooking.Customer.Email,
+                    CustomerName = updatedBooking.Customer.GetFullName()
+                });
+
+                logger.LogInformation("Queue message enqueued for BookingId {BookingId}", id);
+
+                return Ok(ToDto(updatedBooking));
+            }
+
+            /// <summary>
+            /// Cancels a booking with optional reason (idempotent operation)
+            /// </summary>
+            /// <param name="id">Booking ID</param>
+            /// <param name="request">Optional cancellation details</param>
+            /// <returns>No content</returns>
+            /// <response code="204">Booking cancelled successfully</response>
+            /// <response code="404">Booking not found</response>
+
+            [HttpDelete("{id:int}")]
+            public async Task<IActionResult> Cancel(int id, [FromBody] BookingCancelDto? request)
+            {
+                Booking booking;
+                try
+                {
+                    booking = await bookingService.CancelBookingAsync(id, request?.Reason);
+                }
+                catch (NotFoundException)
+                {
+                    return NotFound();
+                }
+                
+                logger.LogInformation("Booking.Cancel called for BookingId {BookingId}", id);
+
+
+                await queueService.EnqueueAsync(new
+                {
+                    BookingId = id,
+                    Action = "Cancelled",
+                    Reason = request?.Reason,
+                    At = DateTime.UtcNow,
+                    CustomerEmail = booking.Customer.Email,
+                    CustomerName = booking.Customer.GetFullName()
+                });
+
+                logger.LogInformation("Queue message enqueued for BookingId {BookingId}", id);
+
+                return NoContent();
+            }
+
+
+
+            // ------- mapping helpers-------
+            /// <summary>
+            /// Converts domain model to response DTO, flattening related entity data for easier consumption
+            /// </summary>
         private static BookingResponseDto ToDto(Booking b)
         {
             return new BookingResponseDto

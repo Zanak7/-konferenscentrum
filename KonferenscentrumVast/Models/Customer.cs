@@ -22,5 +22,7 @@ namespace KonferenscentrumVast.Models
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         public List<Booking> Bookings { get; set; } = new List<Booking>();
+        
+        public string GetFullName() => $"{FirstName} {LastName}";
     }
 }
