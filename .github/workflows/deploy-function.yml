@@ -37,7 +37,7 @@ jobs:
           path: ./func-publish
       
       - name: Deploy to Azure Function App (Publish Profile)
-        uses: Azure/functions-action@v1
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'funckonferensapp'          
           package: ./func-publish
