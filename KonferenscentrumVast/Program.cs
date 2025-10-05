@@ -7,14 +7,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using KonferenscentrumVast;
+using Azure.Identity;
+
 
 var builder = WebApplication.CreateBuilder(args);
+Console.WriteLine($"ENV: {builder.Environment.EnvironmentName}");
+builder.Services.AddApplicationInsightsTelemetry();
+builder.Configuration.AddAzureKeyVault(new Uri("https://kv-konferenscentrum.vault.azure.net/"), new DefaultAzureCredential());
 
 
 // Controllers + JSON (optional: guard against reference loops if any entity slips through)
 builder.Services.AddControllers();
+builder.Services.AddSingleton<BookingEmailQueueService>();
+
 
 // Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

@@ -27,6 +27,35 @@ namespace KonferenscentrumVast.Services
             _contractService = contractService;
         }
 
+
+        public async Task<(bool, Booking)> ConfirmAsync(int id)
+        {
+            var booking = await _bookings.GetByIdAsync(id);
+            if (booking == null) return (false, null);
+
+            booking.Status = BookingStatus.Confirmed;
+
+            await _bookings.UpdateAsync(id, booking);
+
+            return (true, booking);  
+        }
+    
+
+        
+        public async Task<bool> RescheduleAsync(int id, DateTime newStart, DateTime newEnd)
+        {
+
+            var booking = await _bookings.GetByIdAsync(id);
+            if (booking == null) return false;
+
+            booking.StartDate = newStart;
+            booking.EndDate = newEnd;
+
+            await _bookings.UpdateAsync(id, booking);
+
+            return true;
+        }
+
         /// <summary>
         /// Creates a new booking with validation and conflict checking.
         /// Automatically calculates pricing and attempts to generate contract.
@@ -146,13 +175,13 @@ namespace KonferenscentrumVast.Services
             return updated;
         }
 
-        public async Task CancelBookingAsync(int bookingId, string? reason)
+        public async Task<Booking> CancelBookingAsync(int bookingId, string? reason)
         {
             var booking = await _bookings.GetByIdAsync(bookingId)
                 ?? throw new NotFoundException($"Booking with id={bookingId} was not found.");
 
             if (booking.Status == BookingStatus.Cancelled)
-                return; // idempotent 
+                return booking; // idempotent 
             // means if someone tries to cancel a booking that's already cancelled,
             // the method just returns successfully instead of throwing an error
             // this is is a REST API best practice - DELETE and PUT operations should typically be idempotent
@@ -167,6 +196,7 @@ namespace KonferenscentrumVast.Services
                 ?? throw new NotFoundException($"Booking with id={booking.Id} was not found during update.");
 
             _logger.LogInformation("Cancelled booking {BookingId}.", updated.Id);
+            return updated;
         }
 
         /// <summary>

@@ -1,10 +1,11 @@
-﻿using System;
-using System.Diagnostics.Contracts;
-using KonferenscentrumVast.DTO;
+﻿using KonferenscentrumVast.DTO;
 using KonferenscentrumVast.Models;
 using KonferenscentrumVast.Repository.Interfaces;
 using KonferenscentrumVast.Services;
 using Microsoft.AspNetCore.Mvc;
+
+
+
 
 namespace KonferenscentrumVast.Controllers
 {
@@ -18,11 +19,14 @@ namespace KonferenscentrumVast.Controllers
     {
         private readonly BookingContractService _service;
         private readonly IBookingContractRepository _contracts;
+        private readonly BookingEmailQueueService _queue;
         private readonly ILogger<BookingContractController> _logger;
+       
 
-        public BookingContractController(BookingContractService service, IBookingContractRepository contracts, ILogger<BookingContractController> logger)
+        public BookingContractController(BookingContractService service, IBookingContractRepository contracts, BookingEmailQueueService queue, ILogger<BookingContractController> logger)
         {
             _service = service;
+            _contracts = contracts;
             _logger = logger;
             _contracts = contracts;
         }
