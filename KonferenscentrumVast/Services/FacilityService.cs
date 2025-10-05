@@ -28,8 +28,8 @@ namespace KonferenscentrumVast.Services
             _facilities = facilities;
             _logger = logger;
             _blob = blob;
-            _imagesContainer = cfg["AzureStorage:ImagesContainer"]
-                ?? throw new InvalidOperationException("Missing AzureStorage:ImagesContainer");
+            _imagesContainer = cfg["AzureStorage-ImagesContainer"]
+                ?? throw new InvalidOperationException("Missing AzureStorage-ImagesContainer");
         }
 
         public Task<IEnumerable<Facility>> GetAllAsync() => _facilities.GetAllAsync();

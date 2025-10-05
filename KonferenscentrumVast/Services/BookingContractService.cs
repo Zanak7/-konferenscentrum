@@ -37,8 +37,8 @@ namespace KonferenscentrumVast.Services
             _customers = customers;
             _logger = logger;
             _blob = blob;
-            _contractsContainer = cfg["AzureStorage:ContractsContainer"] 
-                ?? throw new InvalidOperationException("Missing AzureStorage:ContractsContainer");
+            _contractsContainer = cfg["AzureStorage-ContractsContainer"] 
+                ?? throw new InvalidOperationException("Missing AzureStorage-ContractsContainer");
         }
 
         /// <summary>
