@@ -25,8 +25,8 @@ public class BookingEmailHandler
         BookingMessageModel message)
     {
         // Always log that a message has been received so it appears in Log Stream / Monitor
-        _logger.LogInformation("[SHO] Queue message received at {Time}", DateTime.UtcNow);
-        _logger.LogInformation("[SHO] BookingId {BookingId}, Action {Action}", message.BookingId, message.Action);
+        _logger.LogInformation("[Queue message received at {Time}", DateTime.UtcNow);
+        _logger.LogInformation("[BookingId {BookingId}, Action {Action}", message.BookingId, message.Action);
 
         var to = message.CustomerEmail;
         var action = message.Action;
@@ -44,13 +44,13 @@ public class BookingEmailHandler
         {
             var email = new EmailMessage(_from, to, new EmailContent(subject) { PlainText = text });
             var result = await _emailClient.SendAsync(WaitUntil.Completed, email);
-            _logger.LogInformation("[SHO] Email sent for BookingId {BookingId}, status: {Status}",
+            _logger.LogInformation("Email sent for BookingId {BookingId}, status: {Status}",
                 message.BookingId, result.Value.Status);
         }
         catch (Exception ex)
         {
             // Log full exception so it appears in Application Insights / Log Stream
-            _logger.LogError(ex, "[SHO] Error sending email, BookingId {BookingId}", message.BookingId);
+            _logger.LogError(ex, "Error sending email, BookingId {BookingId}", message.BookingId);
         }
     }
 }
