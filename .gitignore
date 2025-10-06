@@ -404,6 +404,9 @@ ASALocalRun/
 # Local History for Visual Studio
 .localhistory/
 
+# Pub folder for Azure Functions
+pub/
+
 # VS Code
 
 # -------------------------
