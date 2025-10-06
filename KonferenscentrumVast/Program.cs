@@ -51,12 +51,12 @@ builder.Services.AddScoped<CustomerService>();
 
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration["DbConnectionString"]));
 
 // Azure Blob Storage
 builder.Services.AddSingleton(new BlobServiceClient(
-    builder.Configuration["Blob_ConnectionString"]
-    ?? builder.Configuration["AzureStorage:ConnectionString"]));
+    builder.Configuration["BlobConnectionString"]
+    ?? builder.Configuration["StorageConnectionString"]));
 
 builder.Services.AddCors(opt =>
 {
