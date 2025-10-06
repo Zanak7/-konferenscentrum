@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
     - 'KonferenscentrumFunc/**'
+  workflow_dispatch:
 
 env:
   AZURE_FUNCTIONAPP_NAME: 'funckonferensapp'   # set this to your function app name on Azure
