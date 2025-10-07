@@ -1,4 +1,4 @@
-name: Deploy Azure Function (KonferenscentrumFunc)
+name: Deploy Azure Function (KonferenscentrumFunc – Flex)
 
 on:
   push:
@@ -8,19 +8,18 @@ on:
   workflow_dispatch: {}
 
 env:
-  AZURE_FUNCTIONAPP_NAME: "funckonferensapp"   # exakt app-namn i Azure-portalen
+  AZURE_FUNCTIONAPP_NAME: "funckonferensapp"   # ditt Function App-namn
+  AZURE_RESOURCE_GROUP: "KonferenscentrumRG"   # byt till rätt RG
   PROJECT_PATH: "KonferenscentrumFunc"
   DOTNET_VERSION: "8.0.x"
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -33,31 +32,22 @@ jobs:
           dotnet publish -c Release -o ./output
           popd
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: function-publish
-          path: ${{ env.PROJECT_PATH }}/output
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: function-publish
-          path: ./function-publish
-
-      - name: Create ZIP package
+      - name: Create ZIP
         run: |
-          cd function-publish
-          zip -r ../app.zip .
-          cd ..
+          cd "${{ env.PROJECT_PATH }}/output"
+          zip -r ../../app.zip .
+          cd -
 
-      - name: Deploy to Azure Function App (zip deploy)
-        uses: azure/webapps-deploy@v3
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
         with:
-          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: app.zip
-          publish-profile: ${{ secrets.FUNCTIONAPP_PUBLISH_PROFILE }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy ZIP to Function App (Flex)
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.AZURE_FUNCTIONAPP_NAME }}" \
+            --src app.zip
