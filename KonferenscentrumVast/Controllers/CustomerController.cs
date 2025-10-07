@@ -4,6 +4,7 @@ using KonferenscentrumVast.Models;
 using KonferenscentrumVast.Repository.Interfaces;
 using KonferenscentrumVast.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace KonferenscentrumVast.Controllers
 {
@@ -13,6 +14,7 @@ namespace KonferenscentrumVast.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CustomerController : ControllerBase
     {
         private readonly CustomerService _customerService;

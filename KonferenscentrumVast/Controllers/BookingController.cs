@@ -4,6 +4,7 @@ using KonferenscentrumVast.Repository.Interfaces;
 using KonferenscentrumVast.Services;
 using Microsoft.AspNetCore.Mvc;
 using KonferenscentrumVast.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 
 namespace KonferenscentrumVast.Controllers
 
@@ -14,6 +15,7 @@ namespace KonferenscentrumVast.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class BookingController(
         BookingService bookingService,
         IBookingRepository bookings,

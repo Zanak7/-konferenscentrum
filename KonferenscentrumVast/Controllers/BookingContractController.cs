@@ -3,6 +3,7 @@ using KonferenscentrumVast.Models;
 using KonferenscentrumVast.Repository.Interfaces;
 using KonferenscentrumVast.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 
 
@@ -15,6 +16,7 @@ namespace KonferenscentrumVast.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize] 
     public class BookingContractController : ControllerBase
     {
         private readonly BookingContractService _service;
@@ -39,6 +41,7 @@ namespace KonferenscentrumVast.Controllers
         /// <response code="200">Returns the contract</response>
         /// <response code="404">Contract not found</response>
         [HttpGet("{id:int}")]
+        [Authorize]
         public async Task<ActionResult<BookingContractResponseDto>> GetById(int id)
         {
             var entity = await _service.GetByIdAsync(id);
