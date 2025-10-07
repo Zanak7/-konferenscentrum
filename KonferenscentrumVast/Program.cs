@@ -1,20 +1,26 @@
 ﻿using KonferenscentrumVast.Data;
 using KonferenscentrumVast.Repository.Implementations;
 using KonferenscentrumVast.Repository.Interfaces;
-using KonferenscentrumVast.Services;  
-using KonferenscentrumVast.Exceptions;       
+using KonferenscentrumVast.Services;
+using KonferenscentrumVast.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using Azure.Storage.Blobs;
 using KonferenscentrumVast;
 using Azure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using KonferenscentrumVast.Data.KonferenscentrumVast.Data;
 
 
 var builder = WebApplication.CreateBuilder(args);
 Console.WriteLine($"ENV: {builder.Environment.EnvironmentName}");
 builder.Services.AddApplicationInsightsTelemetry();
-builder.Configuration.AddAzureKeyVault(new Uri("https://kv-konferenscentrum.vault.azure.net/"), new DefaultAzureCredential());
+builder.Configuration.AddAzureKeyVault(new Uri("https://kv-konferenscentrum.vault.azure.net/"),
+    new DefaultAzureCredential());
 
 
 // Controllers + JSON (optional: guard against reference loops if any entity slips through)
@@ -26,6 +32,26 @@ builder.Services.AddSingleton<BookingEmailQueueService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Klistra in din jwt token. T.ex, ey123vre1231..",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Konferenscentrum Väst API", Version = "v1" });
 
     c.MapType<IFormFile>(() => new OpenApiSchema { Type = "string", Format = "binary" });
@@ -68,8 +94,44 @@ builder.Services.AddCors(opt =>
             .AllowAnyMethod();
     });
 });
+builder.Services.AddDbContext<AuthDbContext>(options =>
+    options.UseNpgsql(builder.Configuration["DbConnectionString"]));
 
+builder.Services.AddIdentityCore<IdentityUser>(o =>
+    {
+        o.User.RequireUniqueEmail = true;
+        o.Password.RequiredLength = 6;
+        o.Password.RequireNonAlphanumeric = false;
+        o.Password.RequireUppercase = false;
+        o.Password.RequireDigit = false;
+    })
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<AuthDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+
+var jwtKey = builder.Configuration["JwtSettings:Secret"];
+var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
+var jwtAudience = builder.Configuration["JwtSettings:Audience"];
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opt =>
+    {
+        opt.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+            ValidateLifetime = true
+        };
+    });
 var app = builder.Build();
+
 
 if (app.Environment.IsDevelopment())
 {
@@ -80,10 +142,10 @@ app.UseSwagger();
 app.UseSwaggerUI(); // optional: c => { c.RoutePrefix = string.Empty; }
 
 
-
-app.UseExceptionMapping();    // our custom exception -> HTTP mapping
+app.UseExceptionMapping(); // our custom exception -> HTTP mapping
 app.UseHttpsRedirection();
-app.UseCors("dev");           // remove or change if not needed
+app.UseCors("dev"); // remove or change if not needed
+app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<AuditMiddleware>(); // audit logging
 app.MapControllers();
