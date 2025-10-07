@@ -408,7 +408,7 @@ ASALocalRun/
 pub/
 
 # VS Code
-
+.vscode/
 # -------------------------
 # Extra: sensitive settings
 # -------------------------
