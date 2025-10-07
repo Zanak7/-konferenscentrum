@@ -3,6 +3,8 @@ name: Build & Deploy API (KonferenscentrumVast)
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'KonferenscentrumVast/**'
   workflow_dispatch:
 
 env:
