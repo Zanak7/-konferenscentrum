@@ -1,21 +1,14 @@
-name: Build & (Optionally) Deploy Azure Function (KonferenscentrumFunc)
+name: Build & Deploy Azure Function (KonferenscentrumFunc)
 
 on:
   push:
     branches: ["main"]
     paths:
       - "KonferenscentrumFunc/**"
-  workflow_dispatch:
-    inputs:
-      deploy:
-        description: "Deploy to Azure?"
-        required: true
-        default: "false"
-        type: choice
-        options: ["false","true"]
+  workflow_dispatch: {}   # gör att du kan köra manuellt från Actions
 
 env:
-  AZURE_FUNCTIONAPP_NAME: "funckonferensapp"          # Ditt Function App-namn
+  AZURE_FUNCTIONAPP_NAME: "funckonferensapp"
   AZURE_FUNCTIONAPP_PACKAGE_PATH: "KonferenscentrumFunc"
   DOTNET_VERSION: "8.0.x"
 
@@ -50,8 +43,8 @@ jobs:
           path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output
 
   deploy:
-    # Deploy vid push, eller manuellt om deploy=true
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy == 'true') }}
+    # kör vid push eller när du trycker "Run workflow"
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -61,7 +54,7 @@ jobs:
           name: function-publish
           path: ./function-publish
 
-      - name: Deploy to Azure Functions (Flex Consumption)
+      - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
