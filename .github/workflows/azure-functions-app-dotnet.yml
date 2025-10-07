@@ -49,7 +49,7 @@ jobs:
           name: function-publish
           path: ./function-publish
 
-      - name: Zip publish output
+      - name: Create ZIP package
         run: |
           cd function-publish
           zip -r ../app.zip .
