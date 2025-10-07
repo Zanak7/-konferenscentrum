@@ -49,9 +49,15 @@ jobs:
           name: function-publish
           path: ./function-publish
 
-      - name: Deploy to Azure Function App
-        uses: Azure/functions-action@v1
+      - name: Zip publish output
+        run: |
+          cd function-publish
+          zip -r ../app.zip .
+          cd ..
+
+      - name: Deploy to Azure Function App (zip deploy)
+        uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: "./function-publish"
+          package: app.zip
           publish-profile: ${{ secrets.FUNCTIONAPP_PUBLISH_PROFILE }}
