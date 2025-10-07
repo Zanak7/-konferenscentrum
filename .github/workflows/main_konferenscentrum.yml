@@ -1,68 +1,53 @@
-name: Build & Deploy API (KonferenscentrumVast)
+name: Deploy Azure Function (ZIP via Azure CLI)
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: ["main"]
+    paths:
+      - "KonferenscentrumFunc/**"
+  workflow_dispatch: {}
 
 env:
-  PROJECT_PATH_API: KonferenscentrumVast/KonferenscentrumVast.csproj
-  PUBLISH_DIR: publish
+  AZURE_FUNCTIONAPP_NAME: "funckonferensapp"   # exakt app-namn i portalen
+  AZURE_RESOURCE_GROUP: "DIN-RESOURCE-GROUP"   # <-- BYT till rätt RG
+  PROJECT_PATH: "KonferenscentrumFunc"
+  DOTNET_VERSION: "8.0.x"
 
 jobs:
-  build:
-    runs-on: windows-latest
-    permissions:
-      contents: read
-
+  build-and-deploy:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore ${{ env.PROJECT_PATH_API }}
+        run: dotnet restore "${{ env.PROJECT_PATH }}"
 
-      - name: Build
-        run: dotnet build ${{ env.PROJECT_PATH_API }} --configuration Release --no-restore
+      - name: Publish (Release)
+        run: |
+          pushd "./${{ env.PROJECT_PATH }}"
+          dotnet publish -c Release -o ./output
+          popd
 
-      - name: Publish
-        run: dotnet publish ${{ env.PROJECT_PATH_API }} -c Release -o ${{ env.PUBLISH_DIR }} --no-build
+      - name: Create ZIP
+        run: |
+          cd "${{ env.PROJECT_PATH }}/output"
+          zip -r ../../app.zip .
+          cd -
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: api-publish
-          path: ${{ env.PUBLISH_DIR }}
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: api-publish
-          path: ./api-publish
-
-      - name: Azure Login (OIDC)
+      - name: Azure Login (OIDC, använder dina befintliga secrets)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_24367D95250147C9B2BDC818D7A46E89 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_3A095E9D55654303B98FC85960779B4C }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_134E88A741A34F15AB07E4E1A854F799 }}
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'konferenscentrum'         
-          slot-name: 'Production'
-          package: ./api-publish
+      - name: Deploy ZIP to Function App
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.AZURE_FUNCTIONAPP_NAME }}" \
+            --src app.zip
