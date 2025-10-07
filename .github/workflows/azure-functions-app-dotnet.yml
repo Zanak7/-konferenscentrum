@@ -8,8 +8,8 @@ on:
   workflow_dispatch: {}
 
 env:
-  APP_NAME: "funckonferensapp"                  # Function App-namnet
-  PROJECT_PATH: "KonferenscentrumFunc"          # .csproj-mappen
+  APP_NAME: "funckonferensapp"
+  PROJECT_PATH: "KonferenscentrumFunc"
   DOTNET_VERSION: "8.0.x"
 
 jobs:
@@ -33,9 +33,15 @@ jobs:
           dotnet publish -c Release -o ./output
           popd
 
+      - name: Zip publish output
+        run: |
+          cd "${{ env.PROJECT_PATH }}/output"
+          zip -r ../app.zip .
+          cd -
+
       - name: Deploy (zip deploy – samma stil som Web App)
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.APP_NAME }}
           publish-profile: ${{ secrets.FUNCTIONAPP_PUBLISH_PROFILE }}
-          package: "${{ env.PROJECT_PATH }}/output"
+          package: "${{ env.PROJECT_PATH }}/app.zip"   # <-- ändrat till zip-filen
