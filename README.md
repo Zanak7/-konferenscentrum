@@ -1,7 +1,3 @@
-Toppen! Då kan du bara uppdatera den. Här är en **kort, svensk README** du kan klistra in (ersätt eller komplettera din befintliga):
-
----
-
 # Konferenscentrum Väst – API
 
 Ett ASP.NET Core Web API för bokningshantering av konferensanläggningar (kunder, lokaler, bokningar och avtal).
