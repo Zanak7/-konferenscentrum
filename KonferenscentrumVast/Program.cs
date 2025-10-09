@@ -146,8 +146,8 @@ app.UseExceptionMapping(); // our custom exception -> HTTP mapping
 app.UseHttpsRedirection();
 app.UseCors("dev"); // remove or change if not needed
 app.UseAuthentication();
+app.UseMiddleware<AuditMiddleware>();
 app.UseAuthorization();
-app.UseMiddleware<AuditMiddleware>(); // audit logging
 app.MapControllers();
 
 app.Run();
