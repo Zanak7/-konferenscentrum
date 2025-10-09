@@ -1,3 +1,4 @@
+using System.Security.Claims;
 namespace KonferenscentrumVast;
 
 // Middleware that logs every request
@@ -21,9 +22,9 @@ public class AuditMiddleware
         // Runs the code just before the client recieves a response
         ctx.Response.OnStarting(() =>
         {
-            // If the user is logged in, use their name, otherwise "anonymous"
-            var user = ctx.User?.Identity?.IsAuthenticated == true
-                ? ctx.User.Identity!.Name
+            // If the user is logged in, take the users Id, otherwise log as "anonymous"
+            var userId = ctx.User?.Identity?.IsAuthenticated == true
+                ? (ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous")
                 : "anonymous";
 
             // Try to get the id from the route (for example /api/customers/5)
@@ -31,8 +32,8 @@ public class AuditMiddleware
 
             // Write an audit log
             _logger.LogInformation(
-                "AUDIT User={User} Method={Method} Route={Path} Id={Id} Status={Status} Ms={Ms}",
-                user,                                // Who
+                "AUDIT UserId={UserId} Method={Method} Route={Path} Id={Id} Status={Status} Ms={Ms}",
+                userId,                                // Who
                 ctx.Request.Method,                  // HTTP method (GET/POST/DELETE etc.)
                 ctx.Request.Path.Value,              // Route/path
                 id,                                  // Id of the route/path
