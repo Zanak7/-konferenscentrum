@@ -30,3 +30,18 @@ Swagger: `/swagger`
 1. Registrera användare: `POST /api/auth/register`
 2. Logga in: `POST /api/auth/login` → får JWT
 3. Klicka **Authorize** i Swagger och ange: `Bearer <din-token>`
+
+## Våra val av Azure-tjänster och motivering
+
+* **App Service** – för att kunna deploya API:et enkelt och hantera autoscaling.  
+* **Key Vault** – för att skydda hemligheter och connection strings enligt GDPR.  
+* **PostgreSQL Database** – ger säker och stabil datalagring utan att behöva underhålla egen server.  
+* **Blob Storage** – för att lagra filer och dokument säkert och billigt i molnet.  
+* **Azure Function** – ett lättviktigt API som körs automatiskt bara när det blir kallat, t.ex. för att skicka notifieringar.  
+* **Azure Communication Services** – för att skicka e-postnotifieringar till kunder vid bokningsärenden.  
+
+### Fördelar jämfört med lokal server
+* Molnet ger automatisk backup och högre driftsäkerhet.  
+* Ingen risk för dataförlust vid serverkrasch.  
+* Lättare att skala upp vid hög belastning.  
+* Lägre underhållskostnad och högre säkerhet.  
